@@ -1,10 +1,8 @@
 package com.ademaqua.beercatalog.manufacturer.assembler;
 
-import com.ademaqua.beercatalog.manufacturer.controller.ManufacturerController;
+import com.ademaqua.beercatalog.manufacturer.controller.impl.ManufacturerControllerImpl;
 import com.ademaqua.beercatalog.manufacturer.entity.Manufacturer;
-import org.springframework.hateoas.CollectionModel;
-import org.springframework.hateoas.EntityModel;
-import org.springframework.hateoas.Link;
+import com.ademaqua.beercatalog.manufacturer.entity.ManufacturerModel;
 import org.springframework.hateoas.server.RepresentationModelAssembler;
 import org.springframework.stereotype.Component;
 
@@ -12,22 +10,20 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 @Component
-public class ManufacturerModelAssembler implements RepresentationModelAssembler<Manufacturer, EntityModel<Manufacturer>> {
+public class ManufacturerModelAssembler implements RepresentationModelAssembler<Manufacturer, ManufacturerModel> {
 
 
     @Override
-    public EntityModel<Manufacturer> toModel(Manufacturer manufacturer) {
-        return EntityModel.of(manufacturer,
-                linkTo(methodOn(ManufacturerController.class).getById(manufacturer.getId())).withSelfRel(),
-                linkTo(methodOn(ManufacturerController.class).deleteManufacturerById(manufacturer.getId())).withRel("delete"),
-                linkTo(methodOn(ManufacturerController.class).updateManufacturer(manufacturer.getId(), manufacturer)).withRel("update"));
-    }
+    public ManufacturerModel toModel(Manufacturer manufacturer) {
+        ManufacturerModel manufacturerModel = new ManufacturerModel();
 
-    @Override
-    public CollectionModel<EntityModel<Manufacturer>> toCollectionModel(Iterable<? extends Manufacturer> entities) {
-        CollectionModel<EntityModel<Manufacturer>> manufacturerModel = RepresentationModelAssembler.super.toCollectionModel(entities);
-        manufacturerModel.add(linkTo(methodOn(ManufacturerController.class).getAll()).withSelfRel());
-        manufacturerModel.add(Link.of(linkTo(methodOn(ManufacturerController.class)).toUriComponentsBuilder().build().toUriString()).withRel("add"));
+        manufacturerModel.add(
+                linkTo(methodOn(ManufacturerControllerImpl.class).getById(manufacturer.getId())).withSelfRel(),
+                linkTo(methodOn(ManufacturerControllerImpl.class).deleteManufacturerById(manufacturer.getId())).withRel("delete"),
+                linkTo(methodOn(ManufacturerControllerImpl.class).updateManufacturer(manufacturer.getId(), manufacturer)).withRel("update"));
+        manufacturerModel.setId(manufacturer.getId());
+        manufacturerModel.setName(manufacturer.getName());
+        manufacturerModel.setNationality(manufacturer.getNationality());
         return manufacturerModel;
     }
 }

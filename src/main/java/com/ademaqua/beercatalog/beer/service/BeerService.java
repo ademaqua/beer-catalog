@@ -1,16 +1,17 @@
 package com.ademaqua.beercatalog.beer.service;
 
 import com.ademaqua.beercatalog.beer.entity.Beer;
-import com.ademaqua.beercatalog.beer.entity.dto.BeerDto;
+import com.ademaqua.beercatalog.beer.entity.BeerDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface BeerService {
 
     Optional<Beer> findById(Long id);
 
-    List<Beer> findAllBeers();
+    Page<Beer> findAllBeers(Pageable pageable);
 
     boolean beerExists(BeerDto beer);
 
@@ -20,7 +21,7 @@ public interface BeerService {
 
     void deleteBeerById(Long id);
 
-    List<Beer> findBeersByManufacturerId(Long id);
-
     void updateBeer(Beer actualBeer);
+
+    Page<Beer> findBeersByManufacturerIdAndPageable(Long id, Pageable pageRequest);
 }

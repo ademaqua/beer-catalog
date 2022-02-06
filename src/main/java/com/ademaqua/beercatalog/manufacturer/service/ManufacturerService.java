@@ -1,13 +1,14 @@
 package com.ademaqua.beercatalog.manufacturer.service;
 
 import com.ademaqua.beercatalog.manufacturer.entity.Manufacturer;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface ManufacturerService {
 
-    List<Manufacturer> findAllManufacturers();
+    Page<Manufacturer> findAllManufacturersPaginated(Pageable pageable);
 
     Optional<Manufacturer> findManufacturerById(Long id);
 

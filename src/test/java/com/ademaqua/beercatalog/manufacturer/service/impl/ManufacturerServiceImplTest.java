@@ -7,17 +7,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ManufacturerServiceImplTest {
-    
+
     @InjectMocks
     private ManufacturerServiceImpl service;
-    
+
     @Mock
     private ManufacturerRepository repository;
 
@@ -27,16 +31,17 @@ class ManufacturerServiceImplTest {
         service.findManufacturerById(1L);
 
         // then
-        verify(repository, times(1)).findManufacturerById(1L);
+        verify(repository, times(1)).findById(1L);
     }
 
     @Test
     public void shouldCallFindAllBeersInRepository() {
         // when
-        service.findAllManufacturers();
+        Pageable pageable = PageRequest.of(0,1);
+        service.findAllManufacturersPaginated(pageable);
 
         // then
-        verify(repository, times(1)).findAllManufacturers();
+        verify(repository, times(1)).findAll(pageable);
     }
 
     @Test
@@ -45,7 +50,7 @@ class ManufacturerServiceImplTest {
         service.exists(createManufacturer());
 
         // then
-        verify(repository, times(1)).existsManufacturer(any(Manufacturer.class));
+        verify(repository, times(1)).existsManufacturerByNameAndNationality(anyString(), anyString());
     }
 
     @Test
@@ -54,7 +59,7 @@ class ManufacturerServiceImplTest {
         service.saveManufacturer(createManufacturer());
 
         // then
-        verify(repository, times(1)).save(any());
+        verify(repository, times(1)).saveAndFlush(any());
     }
 
     @Test
@@ -63,19 +68,21 @@ class ManufacturerServiceImplTest {
         service.deleteManufacturerById(1L);
 
         // then
-        verify(repository, times(1)).deleteManufacturerById(1L);
+        verify(repository, times(1)).deleteById(1L);
     }
 
     @Test
     public void shouldCallUpdateMethod() {
+        // given
+        when(repository.findById(anyLong())).thenReturn(Optional.of(createManufacturer()));
         // when
         service.updateManufacturer(createManufacturer());
 
         // then
-        verify(repository, times(1)).updateManufacturer(any());
+        verify(repository, times(1)).saveAndFlush(any());
     }
 
     private Manufacturer createManufacturer() {
-        return Manufacturer.builder().build();
+        return new Manufacturer(1L, "Name", "Nationality");
     }
 }

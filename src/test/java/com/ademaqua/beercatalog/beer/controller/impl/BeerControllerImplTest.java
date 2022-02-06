@@ -1,240 +1,156 @@
 package com.ademaqua.beercatalog.beer.controller.impl;
 
-
-import com.ademaqua.beercatalog.beer.assembler.BeerModelAssembler;
+import com.ademaqua.beercatalog.beer.controller.BeerController;
 import com.ademaqua.beercatalog.beer.entity.Beer;
-import com.ademaqua.beercatalog.beer.entity.dto.BeerDto;
-import com.ademaqua.beercatalog.beer.service.BeerService;
-import com.ademaqua.beercatalog.beer.validator.BeerValidator;
+import com.ademaqua.beercatalog.beer.entity.BeerDto;
+import com.ademaqua.beercatalog.beer.entity.BeerModel;
+import com.ademaqua.beercatalog.manufacturer.controller.ManufacturerController;
 import com.ademaqua.beercatalog.manufacturer.entity.Manufacturer;
+import com.ademaqua.beercatalog.manufacturer.entity.ManufacturerModel;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.hateoas.CollectionModel;
-import org.springframework.hateoas.EntityModel;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.hateoas.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith(SpringExtension.class)
+@SpringBootTest
+@ActiveProfiles("test")
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class BeerControllerImplTest {
 
-    @InjectMocks
-    private BeerControllerImpl beerController;
+    @Autowired
+    private BeerController beerController;
 
-    @Mock
-    private BeerModelAssembler assembler;
+    @Autowired
+    private ManufacturerController manufacturerController;
 
-    @Mock
-    private BeerService beerService;
+    private List<BeerModel> savedBeers;
+    private List<ManufacturerModel> savedManufacturers;
 
-    @Mock
-    private BeerValidator beerValidator;
+    @BeforeEach
+    public void setUp() {
+        // given
+        saveManufacturersInDB(50);
+        saveBeersInDB(250);
+    }
+
+    @AfterEach
+    public void cleanUp() {
+        deleteBeersInDB();
+        deleteManufacturersInDB();
+    }
 
     @Test
-    public void shouldGetAllBeers() {
-        // given
-        List<Beer> beers = List.of(createBeer());
+    public void shouldLoadAllManufacturersWithPageable() {
+        // when
+        PagedModel<BeerModel> retrievedManufacturers = beerController.getAll(0, 25, "asc").getBody();
 
-        when(beerService.findAllBeers()).thenReturn(beers);
+        // then
+        assertAll("pagination data",
+                () -> assertNotNull(retrievedManufacturers),
+                () -> assertEquals(25, retrievedManufacturers.getMetadata().getSize()),
+                () -> assertEquals(10, retrievedManufacturers.getMetadata().getTotalPages()),
+                () -> assertTrue(retrievedManufacturers.getLinks().hasSize(4)));
+    }
+    @Test
+    public void shouldSaveNewManufacturer() {
+        // given
+        ManufacturerModel manufacturerModel = savedManufacturers.get(0);
+        BeerDto beer = new BeerDto();
+        beer.setName("Name");
+        beer.setGraduation(4.2);
+        beer.setType("Type");
+        beer.setDescription("Description");
+        beer.setManufacturerId(manufacturerModel.getId());
 
         // when
-        ResponseEntity<CollectionModel<EntityModel<Beer>>> actualValue = beerController.getAll();
+        BeerModel savedBeer = beerController.addBeer(beer).getBody();
 
         // then
-        verify(assembler, times(1)).toCollectionModel(beers);
+        assertAll("map manufacturer",
+                () -> assertNotNull(savedBeer),
+                () -> assertEquals(beer.getName(), savedBeer.getName()),
+                () -> assertEquals(beer.getGraduation(), savedBeer.getGraduation()),
+                () -> assertEquals(beer.getManufacturerId(), savedBeer.getManufacturer().getId()),
+                () -> assertEquals(beer.getType(), savedBeer.getType()));
     }
 
     @Test
-    public void shouldReturnBeer() {
-        // given
-        Beer beer = createBeer();
-        when(beerService.findById(anyLong())).thenReturn(Optional.of(beer));
-
+    public void shouldReturnBeerWhenIdFound() {
         // when
-        ResponseEntity<EntityModel<Beer>> actualValue = beerController.getById(1L);
+        BeerModel expectedBeer = beerController.getById(savedBeers.get((int) (Math.random() * savedBeers.size())).getId()).getBody();
 
         // then
-        verify(assembler, times(1)).toModel(beer);
-        assertEquals(HttpStatus.OK, actualValue.getStatusCode());
+        assertAll("map manufacturer",
+                () -> assertNotNull(expectedBeer));
     }
 
     @Test
-    public void shouldLaunchExceptionWhenBeerNotFound() {
-        // given
-        when(beerService.findById(anyLong())).thenReturn(Optional.empty());
+    public void shouldLaunchExceptionWhenConflictWhileSaving() {
+        BeerModel beerModel = beerController.getById(savedBeers.get((int) (Math.random() * savedBeers.size())).getId()).getBody();
 
-        // then
-        assertThrows(ResponseStatusException.class, () -> beerController.getById(1L));
+        BeerDto beer = new BeerDto();
+        beer.setName(beerModel.getName());
+        beer.setType(beerModel.getType());
+        beer.setManufacturerId(beerModel.getManufacturer().getId());
+
+        assertThrows(ResponseStatusException.class, () -> beerController.addBeer(beer));
     }
 
     @Test
-    public void shouldThrowConflictWhenBeerAlreadyExists() {
-        // given
-        when(beerValidator.validateBeer(any(BeerDto.class))).thenReturn(false);
+    public void shouldLaunchExceptionWhenManufacturerNotFound() {
+        Beer beer = new Beer();
+        beer.setId(2000L);
 
-        // then
-        assertThrows(ResponseStatusException.class, () -> beerController.addBeer(new BeerDto()));
+        assertThrows(ResponseStatusException.class, () -> beerController.getById(beer.getId()));
     }
 
-    @Test
-    public void shouldThrownBadRequestWhenNotCorrectlyFormattedDto() {
-        // given
-        when(beerValidator.validateBeer(any(BeerDto.class))).thenReturn(true);
-        when(beerService.beerExists(any(BeerDto.class))).thenReturn(true);
-
-        // then
-        assertThrows(ResponseStatusException.class, () -> beerController.addBeer(new BeerDto()));
+    private void saveBeersInDB(int quantity) {
+        savedBeers = new ArrayList<>();
+        for (int i = 0; i < quantity; i++) {
+            savedBeers.add(beerController.addBeer(BeerDto.builder()
+                    .name("Name" + i).type("Type")
+                    .manufacturerId(savedManufacturers.get((int) (Math.random() * savedManufacturers.size())).getId())
+                    .graduation(Math.random() * 10).description("Description")
+                    .build()).getBody());
+        }
     }
 
-    @Test
-    public void shouldAddNewBeer() {
-        // given
-        when(beerService.beerExists(any(BeerDto.class))).thenReturn(false);
-        when(beerValidator.validateBeer(any(BeerDto.class))).thenReturn(true);
-        when(beerService.saveBeer(any(BeerDto.class))).thenReturn(Beer.builder().build());
-
-        // when
-        ResponseEntity<EntityModel<Beer>> actualValue = beerController.addBeer(new BeerDto());
-
-        // then
-        assertEquals(HttpStatus.CREATED, actualValue.getStatusCode());
-        verify(assembler, times(1)).toModel(any(Beer.class));
+    private void saveManufacturersInDB(int quantity) {
+        savedManufacturers = new ArrayList<>();
+        for (int i = 0; i < quantity; i++) {
+            savedManufacturers.add(manufacturerController.addManufacturer(createManufacturer("Name" + i)).getBody());
+        }
     }
 
-    @Test
-    public void shouldDeleteBeer() {
-        // when
-        ResponseEntity<Void> actualValue = beerController.deleteBeerById(1L);
-
-        // then
-        assertEquals(HttpStatus.NO_CONTENT, actualValue.getStatusCode());
+    private Manufacturer createManufacturer(String name) {
+        return new Manufacturer(null, name, "Nationality");
     }
 
-    @Test
-    public void shouldThrowAnErrorWhenTryingToUpdateNotExistentBeer() {
-        // given
-        when(beerService.findById(anyLong())).thenReturn(Optional.empty());
-
-        // then
-        assertThrows(ResponseStatusException.class, () -> beerController.updateBeer(1L, createBeer()));
+    private void deleteManufacturersInDB() {
+        manufacturerController.getAll(0, 100, "desc").getBody().getContent().forEach(manufacturerModel -> manufacturerController.deleteManufacturerById(manufacturerModel.getId()));
     }
 
-    @Test
-    public void shouldUpdateNameWhenIsAvailable() {
-        // given
-        Beer beer = createBeer();
-        beer.setName("NEW_NAME");
-        Beer inMemoryBeer = createBeer();
-        when(beerService.findById(anyLong())).thenReturn(Optional.of(inMemoryBeer));
-        when(assembler.toModel(any())).thenCallRealMethod();
-
-        // when
-        ResponseEntity<EntityModel<Beer>> actualValue = beerController.updateBeer(1L, beer);
-
-        // then
-        verify(beerService, times(1)).updateBeer(any());
-        assertEquals(HttpStatus.OK, actualValue.getStatusCode());
-        assertEquals(beer.getName(), Objects.requireNonNull(Objects.requireNonNull(actualValue.getBody()).getContent()).getName());
-    }
-
-    @Test
-    public void shouldUpdateDescriptionWhenIsAvailable() {
-        // given
-        Beer beer = createBeer();
-        beer.setDescription("NEW_DESCRIPTION");
-        Beer inMemoryBeer = createBeer();
-        when(beerService.findById(anyLong())).thenReturn(Optional.of(inMemoryBeer));
-        when(assembler.toModel(any())).thenCallRealMethod();
-
-        // when
-        ResponseEntity<EntityModel<Beer>> actualValue = beerController.updateBeer(1L, beer);
-
-        // then
-        verify(beerService, times(1)).updateBeer(any());
-        assertEquals(HttpStatus.OK, actualValue.getStatusCode());
-        assertEquals(beer.getDescription(), Objects.requireNonNull(Objects.requireNonNull(actualValue.getBody()).getContent()).getDescription());
-    }
-
-    @Test
-    public void shouldUpdateTypeWhenIsAvailable() {
-        // given
-        Beer beer = createBeer();
-        beer.setType("NEW_TYPE");
-        Beer inMemoryBeer = createBeer();
-        when(beerService.findById(anyLong())).thenReturn(Optional.of(inMemoryBeer));
-        when(assembler.toModel(any())).thenCallRealMethod();
-
-        // when
-        ResponseEntity<EntityModel<Beer>> actualValue = beerController.updateBeer(1L, beer);
-
-        // then
-        verify(beerService, times(1)).updateBeer(any());
-        assertEquals(HttpStatus.OK, actualValue.getStatusCode());
-        assertEquals(beer.getType(), Objects.requireNonNull(Objects.requireNonNull(actualValue.getBody()).getContent()).getType());
-    }
-
-    @Test
-    public void shouldUpdateGraduationWhenIsAvailable() {
-        // given
-        Beer beer = createBeer();
-        beer.setGraduation(4.0);
-        Beer inMemoryBeer = createBeer();
-        when(beerService.findById(anyLong())).thenReturn(Optional.of(inMemoryBeer));
-        when(assembler.toModel(any())).thenCallRealMethod();
-
-        // when
-        ResponseEntity<EntityModel<Beer>> actualValue = beerController.updateBeer(1L, beer);
-
-        // then
-        verify(beerService, times(1)).updateBeer(any());
-        assertEquals(HttpStatus.OK, actualValue.getStatusCode());
-        assertEquals(beer.getGraduation(), Objects.requireNonNull(Objects.requireNonNull(actualValue.getBody()).getContent()).getGraduation());
-    }
-
-    @Test
-    public void shouldUpdateManufacturerWhenIsAvailable() {
-        // given
-        Beer beer = createBeer();
-        beer.setManufacturer(Manufacturer.builder().name("NEW_MANUFACTURER").build());
-        Beer inMemoryBeer = createBeer();
-        when(beerService.findById(anyLong())).thenReturn(Optional.of(inMemoryBeer));
-        when(assembler.toModel(any())).thenCallRealMethod();
-
-        // when
-        ResponseEntity<EntityModel<Beer>> actualValue = beerController.updateBeer(1L, beer);
-
-        // then
-        verify(beerService, times(1)).updateBeer(any());
-        assertEquals(HttpStatus.OK, actualValue.getStatusCode());
-        assertEquals(beer.getDescription(), Objects.requireNonNull(Objects.requireNonNull(actualValue.getBody()).getContent()).getDescription());
-    }
-
-    @Test
-    public void shouldRetrieveAllBeersPerOneManufacturer() {
-        // when
-        beerController.getByManufacturer(1L);
-
-        // then
-        verify(assembler, times(1)).toCollectionModel(any());
-        verify(beerService, times(1)).findBeersByManufacturerId(1L);
-    }
-
-    private Beer createBeer() {
-        return Beer.builder()
-                .name("NAME").type("TYPE").graduation(0.0)
-                .description("DESCRIPTION").manufacturer(
-                        Manufacturer.builder().name("MANUFACTURER").nationality("COUNTRY").build())
-                .build();
+    private void deleteBeersInDB() {
+        beerController.getAll(0,500, "desc").getBody().getContent().forEach(beerModel -> beerController.deleteBeerById(beerModel.getId()));
     }
 }

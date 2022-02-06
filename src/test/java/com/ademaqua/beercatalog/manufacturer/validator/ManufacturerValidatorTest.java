@@ -18,7 +18,7 @@ class ManufacturerValidatorTest {
     @Test
     public void shouldReturnFalseWhenNoManufactureInfo() {
         // given
-        Manufacturer manufacturer = Manufacturer.builder().build();
+        Manufacturer manufacturer = new Manufacturer();
 
         // then
         assertFalse(validator.validate(manufacturer));
@@ -27,7 +27,7 @@ class ManufacturerValidatorTest {
     @Test
     public void shouldReturnFalseWhenOnlyNameInfo() {
         // given
-        Manufacturer manufacturer = Manufacturer.builder().name("NAME").build();
+        Manufacturer manufacturer = new Manufacturer(null, "Name", null);
 
         // then
         assertFalse(validator.validate(manufacturer));
@@ -36,7 +36,7 @@ class ManufacturerValidatorTest {
     @Test
     public void shouldReturnFalseWhenAllInfo() {
         // given
-        Manufacturer manufacturer = Manufacturer.builder().name("NAME").nationality("COUNTRY").build();
+        Manufacturer manufacturer = new Manufacturer(null, "Name", "Nationality");
 
         // then
         assertTrue(validator.validate(manufacturer));

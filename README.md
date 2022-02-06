@@ -1,4 +1,5 @@
 # BEER CATALOG
+### ADDED PERSISTENCE!! Using H2 Database
 Fancy a beer? We want you to be informed on what beers and manufacturers we have available in our app.
 
 You can follow the steps to have your own beer catalog running!

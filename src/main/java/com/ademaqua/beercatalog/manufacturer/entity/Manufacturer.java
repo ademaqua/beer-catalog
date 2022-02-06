@@ -1,18 +1,31 @@
 package com.ademaqua.beercatalog.manufacturer.entity;
 
-import lombok.Builder;
 import lombok.Data;
 import org.springframework.hateoas.RepresentationModel;
 
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
 import java.util.Objects;
 
 @Data
-@Builder
+@Entity
 public class Manufacturer extends RepresentationModel<Manufacturer> {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
     private String name;
     private String nationality;
+
+    public Manufacturer() { }
+
+    public Manufacturer(Long id, String name, String nationality) {
+        this.id = id;
+        this.name = name;
+        this.nationality = nationality;
+    }
 
     @Override
     public boolean equals(Object o) {

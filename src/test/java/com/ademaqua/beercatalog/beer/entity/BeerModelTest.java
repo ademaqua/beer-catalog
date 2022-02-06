@@ -1,21 +1,19 @@
 package com.ademaqua.beercatalog.beer.entity;
 
-
 import com.ademaqua.beercatalog.manufacturer.entity.Manufacturer;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
-class BeerTest {
+class BeerModelTest {
 
     @Test
     public void shouldReturnTrueWhenEqualsNotConsideringId() {
         // given
-        Beer beerA = createBeer();
+        BeerModel beerA = createBeer();
         beerA.setId(1L);
-        Beer beerB = createBeer();
-        beerB.setId(2L);
+        BeerModel beerB = createBeer();
+        beerB.setId(1L);
 
         // then
         assertEquals(beerA, beerB);
@@ -24,9 +22,9 @@ class BeerTest {
     @Test
     public void shouldReturnFalseWhenNotEquals() {
         // given
-        Beer beerA = createBeer();
+        BeerModel beerA = createBeer();
         beerA.setName("NEW_NAME");
-        Beer beerB = createBeer();
+        BeerModel beerB = createBeer();
 
         // then
         assertNotEquals(beerA, beerB);
@@ -34,16 +32,16 @@ class BeerTest {
 
     @Test
     public void shouldEqualsWhenHashing() {
-        Beer beerA = createBeer();
-        beerA.setId(1L);
-        Beer beerB = createBeer();
-        beerB.setId(2L);
+        BeerModel beerA = BeerModel.builder().id(1L).name("Name")
+                .description("Description").type("Type")
+                .graduation(0.0).manufacturer(createManufacturer("Name")).build();
+        BeerModel beerB = new BeerModel(1L, "Name", 0.0, "Type", "Description", createManufacturer("Name"));
 
         assertEquals(beerA.hashCode(), beerB.hashCode());
     }
 
-    private Beer createBeer() {
-        Beer beer = new Beer();
+    private BeerModel createBeer() {
+        BeerModel beer = new BeerModel();
         beer.setName("Name");
         beer.setGraduation(0.0);
         beer.setType("Type");

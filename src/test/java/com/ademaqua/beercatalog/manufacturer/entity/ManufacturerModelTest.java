@@ -1,21 +1,18 @@
 package com.ademaqua.beercatalog.manufacturer.entity;
 
-import com.ademaqua.beercatalog.beer.entity.Beer;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
-
-class ManufacturerTest {
+class ManufacturerModelTest {
 
     @Test
     public void shouldReturnTrueWhenEqualsNotConsideringId() {
         // given
-        Manufacturer manufacturerA = createManufacturer();
-        manufacturerA.setId(1L);
-        Manufacturer manufacturerB = createManufacturer();
-        manufacturerB.setId(2L);
+        ManufacturerModel manufacturerA = createManufacturer();
+        ManufacturerModel manufacturerB = createManufacturer();
 
         // then
         assertEquals(manufacturerA, manufacturerB);
@@ -24,9 +21,9 @@ class ManufacturerTest {
     @Test
     public void shouldReturnFalseWhenNotEquals() {
         // given
-        Manufacturer manufacturerA = createManufacturer();
+        ManufacturerModel manufacturerA = createManufacturer();
         manufacturerA.setName("NEW_NAME");
-        Manufacturer manufacturerB = createManufacturer();
+        ManufacturerModel manufacturerB = createManufacturer();
 
         // then
         assertNotEquals(manufacturerA, manufacturerB);
@@ -34,16 +31,12 @@ class ManufacturerTest {
 
     @Test
     public void shouldEqualsWhenHashing() {
-        Manufacturer manufacturerA = createManufacturer();
-        manufacturerA.setId(1L);
-        Manufacturer manufacturerB = createManufacturer();
-        manufacturerB.setId(2L);
+        ManufacturerModel manufacturerA = createManufacturer();
+        ManufacturerModel manufacturerB = createManufacturer();
 
         assertEquals(manufacturerA.hashCode(), manufacturerB.hashCode());
     }
 
-    private Manufacturer createManufacturer() {
-        return new Manufacturer(null, "Name", "Nationality");
-    }
-
-}
+    private ManufacturerModel createManufacturer() {
+        return ManufacturerModel.builder().name("Name").nationality("Nationality").build();
+    }}

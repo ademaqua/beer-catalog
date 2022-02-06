@@ -1,10 +1,8 @@
 package com.ademaqua.beercatalog.beer.service.impl;
 
 import com.ademaqua.beercatalog.beer.entity.Beer;
-import com.ademaqua.beercatalog.beer.entity.dto.BeerDto;
-import com.ademaqua.beercatalog.beer.mapper.BeerMapper;
+import com.ademaqua.beercatalog.beer.entity.BeerDto;
 import com.ademaqua.beercatalog.beer.repository.BeerRepository;
-import com.ademaqua.beercatalog.beer.service.BeerService;
 import com.ademaqua.beercatalog.manufacturer.entity.Manufacturer;
 import com.ademaqua.beercatalog.manufacturer.service.ManufacturerService;
 import org.junit.jupiter.api.Test;
@@ -12,13 +10,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -31,9 +36,6 @@ class BeerServiceImplTest {
     private BeerRepository beerRepository;
 
     @Mock
-    private BeerMapper beerMapper;
-
-    @Mock
     private ManufacturerService manufacturerService;
 
     @Test
@@ -42,25 +44,27 @@ class BeerServiceImplTest {
         beerService.findById(1L);
 
         // then
-        verify(beerRepository, times(1)).findBeerById(1L);
+        verify(beerRepository, times(1)).findById(1L);
     }
 
     @Test
     public void shouldCallFindAllBeersInRepository() {
         // when
-        beerService.findAllBeers();
+        Pageable pageable = PageRequest.of(0,1);
+        beerService.findAllBeers(pageable);
 
         // then
-        verify(beerRepository, times(1)).findAllBeers();
+        verify(beerRepository, times(1)).findAll(pageable);
     }
 
     @Test
     public void shouldCallExistBeer() {
         // when
-        beerService.beerExists(new BeerDto());
+        when(manufacturerService.findManufacturerById(anyLong())).thenReturn(Optional.of(new Manufacturer(1L, "Name", "Nationality")));
+        beerService.beerExists(BeerDto.builder().name("Name").type("Type").manufacturerId(1L).build());
 
         // then
-        verify(beerRepository, times(1)).existsBeer(any(BeerDto.class));
+        verify(beerRepository, times(1)).existsBeerByNameAndTypeAndManufacturer(anyString(), anyString(), any());
     }
 
     @Test
@@ -73,12 +77,14 @@ class BeerServiceImplTest {
     }
 
     @Test
-    public void shouldCallMapAndSaveMethods() {
+    public void shouldSaveBeer() {
+        // given
+        when(manufacturerService.findManufacturerById(anyLong())).thenReturn(Optional.of(new Manufacturer(1L, "Name", "Nationality")));
+
         // when
-        beerService.saveBeer(new BeerDto());
+        beerService.saveBeer(BeerDto.builder().manufacturerId(1L).build());
 
         // then
-        verify(beerMapper, times(1)).map(any(BeerDto.class));
         verify(beerRepository, times(1)).save(any());
     }
 
@@ -88,19 +94,21 @@ class BeerServiceImplTest {
         beerService.deleteBeerById(1L);
 
         // then
-        verify(beerRepository, times(1)).deleteBeerById(1L);
+        verify(beerRepository, times(1)).deleteById(1L);
     }
 
     @Test
     public void shouldFindManufacturerAndCallMethod() {
         // given
-        when(manufacturerService.findManufacturerById(anyLong())).thenReturn(Optional.of(Manufacturer.builder().build()));
+        when(manufacturerService.findManufacturerById(anyLong())).thenReturn(Optional.of(new Manufacturer()));
 
         // when
-        beerService.findBeersByManufacturerId(1L);
+        Pageable pageable = PageRequest.of(0,1);
+        beerService.findAllBeers(pageable);
+        beerService.findBeersByManufacturerIdAndPageable(1L, pageable);
 
         // then
-        verify(beerRepository, times(1)).findBeersByManufacturer(any());
+        verify(beerRepository, times(1)).findBeersByManufacturer(any(), eq(pageable));
     }
 
     @Test
@@ -109,23 +117,32 @@ class BeerServiceImplTest {
         when(manufacturerService.findManufacturerById(anyLong())).thenReturn(Optional.empty());
 
         // then
-        assertThrows(ResponseStatusException.class, () -> beerService.findBeersByManufacturerId(1L));
+        assertThrows(ResponseStatusException.class, () -> beerService.findBeersByManufacturerIdAndPageable(1L, PageRequest.of(0, 1)));
     }
 
     @Test
     public void shouldCallUpdateMethod() {
+        // given
+        when(beerRepository.findById(any())).thenReturn(Optional.of(createBeer()));
+
         // when
         beerService.updateBeer(createBeer());
 
         // then
-        verify(beerRepository, times(1)).updateBeer(any());
+        verify(beerRepository, times(1)).saveAndFlush(any());
     }
 
     private Beer createBeer() {
-        return Beer.builder()
-                .name("NAME").type("TYPE").graduation(0.0)
-                .description("DESCRIPTION").manufacturer(
-                        Manufacturer.builder().id(1L).name("MANUFACTURER").nationality("COUNTRY").build())
-                .build();
+        Beer beer = new Beer();
+        beer.setName("Name");
+        beer.setGraduation(0.0);
+        beer.setType("Type");
+        beer.setDescription("Description");
+        beer.setManufacturer(createManufacturer("Manufacturer"));
+        return beer;
+    }
+
+    private Manufacturer createManufacturer(String manufacturer) {
+        return new Manufacturer(null, manufacturer, "Nationality");
     }
 }

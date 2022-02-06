@@ -1,22 +1,29 @@
 package com.ademaqua.beercatalog.beer.controller;
 
 import com.ademaqua.beercatalog.beer.entity.Beer;
-import com.ademaqua.beercatalog.beer.entity.dto.BeerDto;
-import org.springframework.hateoas.CollectionModel;
-import org.springframework.hateoas.EntityModel;
+import com.ademaqua.beercatalog.beer.entity.BeerDto;
+import com.ademaqua.beercatalog.beer.entity.BeerModel;
+import org.springframework.hateoas.PagedModel;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 public interface BeerController {
 
-    ResponseEntity<CollectionModel<EntityModel<Beer>>> getAll();
+    ResponseEntity<PagedModel<BeerModel>> getAll(@RequestParam(defaultValue = "0") int pageNumber,
+                                                 @RequestParam(defaultValue = "25") int pageSize,
+                                                 @RequestParam(defaultValue = "asc") String order);
 
-    ResponseEntity<EntityModel<Beer>> getById(Long id);
+    ResponseEntity<BeerModel> getById(Long id);
 
-    ResponseEntity<EntityModel<Beer>> addBeer(BeerDto beer);
+    ResponseEntity<BeerModel> addBeer(BeerDto beer);
 
     ResponseEntity<Void> deleteBeerById(Long id);
 
-    ResponseEntity<EntityModel<Beer>> updateBeer(Long id, Beer beer);
+    ResponseEntity<BeerModel> updateBeer(Long id, Beer beer);
 
-    ResponseEntity<CollectionModel<EntityModel<Beer>>> getByManufacturer(Long id);
+    ResponseEntity<PagedModel<BeerModel>> getByManufacturer(@PathVariable("id") Long id,
+                                                            @RequestParam(defaultValue = "0") int pageNumber,
+                                                            @RequestParam(defaultValue = "25") int pageSize,
+                                                            @RequestParam(defaultValue = "asc") String order);
 }

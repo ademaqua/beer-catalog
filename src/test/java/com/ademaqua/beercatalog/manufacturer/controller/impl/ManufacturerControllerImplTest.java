@@ -1,172 +1,173 @@
 package com.ademaqua.beercatalog.manufacturer.controller.impl;
 
+import com.ademaqua.beercatalog.manufacturer.controller.ManufacturerController;
 import com.ademaqua.beercatalog.manufacturer.entity.Manufacturer;
-import com.ademaqua.beercatalog.manufacturer.assembler.ManufacturerModelAssembler;
-import com.ademaqua.beercatalog.manufacturer.service.ManufacturerService;
-import com.ademaqua.beercatalog.manufacturer.validator.ManufacturerValidator;
+import com.ademaqua.beercatalog.manufacturer.entity.ManufacturerModel;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.hateoas.CollectionModel;
-import org.springframework.hateoas.EntityModel;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.hateoas.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.times;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith(SpringExtension.class)
+@SpringBootTest
+@ActiveProfiles("test")
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class ManufacturerControllerImplTest {
 
-    @InjectMocks
-    private ManufacturerControllerImpl controller;
+    @Autowired
+    private ManufacturerController controller;
 
-    @Mock
-    private ManufacturerValidator validator;
+    private List<ManufacturerModel> elementsSaved;
 
-    @Mock
-    private ManufacturerService service;
-
-    @Mock
-    private ManufacturerModelAssembler assembler;
-
-    @Test
-    public void shouldGetAllManufacturers() {
+    @BeforeEach
+    public void setUp() {
         // given
-        List<Manufacturer> manufacturerList = List.of(createManufacturer());
+        saveManufacturersInDB(50);
+    }
 
-        when(service.findAllManufacturers()).thenReturn(manufacturerList);
-
-        // when
-        ResponseEntity<CollectionModel<EntityModel<Manufacturer>>> actualValue = controller.getAll();
-
-        // then
-        verify(assembler, times(1)).toCollectionModel(manufacturerList);
+    @AfterEach
+    public void cleanUp() {
+        deleteManufacturersInDB();
     }
 
     @Test
-    public void shouldReturnManufacturer() {
+    public void shouldSaveNewManufacturer() {
         // given
-        Manufacturer manufacturer = createManufacturer();
-        when(service.findManufacturerById(anyLong())).thenReturn(Optional.of(manufacturer));
+        Manufacturer manufacturer = new Manufacturer(null, "NameSaved", "Nationality");
 
         // when
-        ResponseEntity<EntityModel<Manufacturer>> actualValue = controller.getById(1L);
+        ManufacturerModel savedManufacturer = controller.addManufacturer(manufacturer).getBody();
 
         // then
-        verify(assembler, times(1)).toModel(manufacturer);
-        assertEquals(HttpStatus.OK, actualValue.getStatusCode());
+        assertAll("map manufacturer",
+                () -> assertNotNull(savedManufacturer),
+                () -> assertEquals(manufacturer.getName(), savedManufacturer.getName()),
+                () -> assertEquals(manufacturer.getNationality(), savedManufacturer.getNationality()));
+    }
+
+    @Test
+    public void shouldLoadAllManufacturersWithPageable() {
+        // when
+        PagedModel<ManufacturerModel> retrievedManufacturers = controller.getAll(0, 10, "asc").getBody();
+
+        // then
+        assertAll("pagination data",
+                () -> assertNotNull(retrievedManufacturers),
+                () -> assertEquals(10, retrievedManufacturers.getMetadata().getSize()),
+                () -> assertEquals(5, retrievedManufacturers.getMetadata().getTotalPages()),
+                () -> assertTrue(retrievedManufacturers.getLinks().hasSize(4)));
+    }
+
+    @Test
+    public void shouldReturnManufacturerWhenIdFound() {
+        // given
+        Manufacturer manufacturer = new Manufacturer(null, "Name", "Nationality");
+        ManufacturerModel savedManufacturer = controller.addManufacturer(manufacturer).getBody();
+
+        // when
+        assert savedManufacturer != null;
+        ManufacturerModel expectedManufacturer = controller.getById(savedManufacturer.getId()).getBody();
+
+        // then
+        assertAll("map manufacturer",
+                () -> assertNotNull(expectedManufacturer),
+                () -> assertEquals(savedManufacturer.getName(), expectedManufacturer.getName()),
+                () -> assertEquals(savedManufacturer.getNationality(), expectedManufacturer.getNationality()));
+    }
+
+    @Test
+    public void shouldLaunchExceptionWhenConflictWhileSaving() {
+        Manufacturer manufacturer = new Manufacturer(null, "Name1", "Nationality");
+
+        assertThrows(ResponseStatusException.class, () -> controller.addManufacturer(manufacturer));
     }
 
     @Test
     public void shouldLaunchExceptionWhenManufacturerNotFound() {
-        // given
-        when(service.findManufacturerById(anyLong())).thenReturn(Optional.empty());
+        Manufacturer manufacturer = new Manufacturer(500L, "Name100", "Nationality");
 
-        // then
-        assertThrows(ResponseStatusException.class, () -> controller.getById(1L));
+        assertThrows(ResponseStatusException.class, () -> controller.getById(manufacturer.getId()));
     }
 
     @Test
-    public void shouldThrowConflictWhenManufacturerAlreadyExists() {
-        // given
-        when(validator.validate(any(Manufacturer.class))).thenReturn(false);
+    public void shouldReturnErrorWhenManufacturerNotWellSended() {
+        Manufacturer manufacturer = new Manufacturer();
 
-        // then
-        assertThrows(ResponseStatusException.class, () -> controller.addManufacturer(Manufacturer.builder().build()));
+        assertThrows(ResponseStatusException.class, () -> controller.addManufacturer(manufacturer));
     }
 
     @Test
-    public void shouldThrownBadRequestWhenNotCorrectlyFormattedDto() {
-        // given
-        when(validator.validate(any(Manufacturer.class))).thenReturn(true);
-        when(service.exists(any(Manufacturer.class))).thenReturn(true);
+    public void shouldReturnErrorWhenManufacturerNotPartiallyWellSended() {
+        Manufacturer manufacturer = new Manufacturer(null, "Name", null);
 
-        // then
-        assertThrows(ResponseStatusException.class, () -> controller.addManufacturer(Manufacturer.builder().build()));
-    }
-
-    @Test
-    public void shouldAddNewManufacturer() {
-        // given
-        when(service.exists(any(Manufacturer.class))).thenReturn(false);
-        when(validator.validate(any(Manufacturer.class))).thenReturn(true);
-        when(service.saveManufacturer(any(Manufacturer.class))).thenReturn(Manufacturer.builder().build());
-
-        // when
-        ResponseEntity<EntityModel<Manufacturer>> actualValue = controller.addManufacturer(Manufacturer.builder().build());
-
-        // then
-        assertEquals(HttpStatus.CREATED, actualValue.getStatusCode());
-        verify(assembler, times(1)).toModel(any(Manufacturer.class));
-    }
-
-    @Test
-    public void shouldDeleteManufacturer() {
-        // when
-        ResponseEntity<Void> actualValue = controller.deleteManufacturerById(1L);
-
-        // then
-        assertEquals(HttpStatus.NO_CONTENT, actualValue.getStatusCode());
+        assertThrows(ResponseStatusException.class, () -> controller.addManufacturer(manufacturer));
     }
 
     @Test
     public void shouldThrowAnErrorWhenTryingToUpdateNotExistentManufacturer() {
-        // given
-        when(service.findManufacturerById(anyLong())).thenReturn(Optional.empty());
-
         // then
-        assertThrows(ResponseStatusException.class, () -> controller.updateManufacturer(1L, createManufacturer()));
+        assertThrows(ResponseStatusException.class, () -> controller.updateManufacturer(500L, createManufacturer("NAME")));
     }
 
     @Test
     public void shouldUpdateNameWhenIsAvailable() {
         // given
-        Manufacturer manufacturer = createManufacturer();
-        manufacturer.setName("NEW_NAME");
-        Manufacturer inMemoryManufacturer = createManufacturer();
-        when(service.findManufacturerById(anyLong())).thenReturn(Optional.of(inMemoryManufacturer));
-        when(assembler.toModel(any())).thenCallRealMethod();
-
+        Manufacturer manufacturer = createManufacturer("NEW_NAME");
         // when
-        ResponseEntity<EntityModel<Manufacturer>> actualValue = controller.updateManufacturer(1L, manufacturer);
+        ResponseEntity<ManufacturerModel> actualValue = controller.updateManufacturer(elementsSaved.get(0).getId(), manufacturer);
 
         // then
-        verify(service, times(1)).updateManufacturer(any());
+
         assertEquals(HttpStatus.OK, actualValue.getStatusCode());
-        assertEquals(manufacturer.getName(), Objects.requireNonNull(Objects.requireNonNull(actualValue.getBody()).getContent()).getName());
+        assertEquals(manufacturer.getName(), Objects.requireNonNull(actualValue.getBody()).getName());
     }
 
     @Test
     public void shouldUpdateNationalityWhenIsAvailable() {
         // given
-        Manufacturer manufacturer = createManufacturer();
+        Manufacturer manufacturer = new Manufacturer();
         manufacturer.setNationality("NEW NATIONALITY");
-        Manufacturer inMemoryManufacturer = createManufacturer();
-        when(service.findManufacturerById(anyLong())).thenReturn(Optional.of(inMemoryManufacturer));
-        when(assembler.toModel(any())).thenCallRealMethod();
 
         // when
-        ResponseEntity<EntityModel<Manufacturer>> actualValue = controller.updateManufacturer(1L, manufacturer);
+        ResponseEntity<ManufacturerModel> actualValue = controller.updateManufacturer(elementsSaved.get(0).getId(), manufacturer);
 
         // then
-        verify(service, times(1)).updateManufacturer(any());
+
         assertEquals(HttpStatus.OK, actualValue.getStatusCode());
-        assertEquals(manufacturer.getNationality(), Objects.requireNonNull(Objects.requireNonNull(actualValue.getBody()).getContent()).getNationality());
+        assertEquals(manufacturer.getNationality(), Objects.requireNonNull(actualValue.getBody()).getNationality());
     }
 
-    private Manufacturer createManufacturer() {
-        return Manufacturer.builder().name("MANUFACTURER").nationality("COUNTRY").build();
+    private void saveManufacturersInDB(int quantity) {
+        elementsSaved = new ArrayList<>();
+        for (int i = 0; i < quantity; i++) {
+            elementsSaved.add(controller.addManufacturer(createManufacturer("Name" + i)).getBody());
+        }
+    }
+
+    private Manufacturer createManufacturer(String name) {
+        return new Manufacturer(null, name, "Nationality");
+    }
+
+    private void deleteManufacturersInDB() {
+        controller.getAll(0, 100, "desc").getBody().getContent().forEach(manufacturerModel -> controller.deleteManufacturerById(manufacturerModel.getId()));
     }
 }
