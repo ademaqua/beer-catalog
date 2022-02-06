@@ -2,6 +2,7 @@
 Fancy a beer? We want you to be informed on what beers and manufacturers we have available in our app.
 
 You can follow the steps to have your own beer catalog running!
+If you want to use a persistence layer, you can go to persistence branch.
 
 ## Building the aplication
 ### Using your local java environment
