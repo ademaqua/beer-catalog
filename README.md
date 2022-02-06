@@ -4,6 +4,8 @@ Fancy a beer? We want you to be informed on what beers and manufacturers we have
 
 You can follow the steps to have your own beer catalog running!
 
+If you want to check the Swagger documentation, you can write http://localhost:9091/swagger-ui after starting your application.
+
 ## Building the aplication
 ### Using your local java environment
 If you have your JDK (at least 11+) and Maven (3+) running on your local machine, you can compile and run the app!
